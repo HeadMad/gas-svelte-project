@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { build as esbuild } from 'esbuild';
+import { minify } from 'terser';
 import { execSync } from 'child_process';
 
 // ==========================================
@@ -20,7 +21,7 @@ const CONFIG = {
   backendSettings: {
     concatenate: true,
     outFile: 'Code.js',
-    minify: true, // Финальное сжатие
+    minify: true,
     priorityOrder: [
       'config.js',
       'utils/logger.js'
@@ -46,12 +47,60 @@ function cleanDist() {
 function getBanner() {
   try {
     if (!fs.existsSync(CONFIG.packageJsonPath)) return '';
+    
     const pkg = JSON.parse(fs.readFileSync(CONFIG.packageJsonPath, 'utf-8'));
-    let banner = `/**\n * ${pkg.name || 'App'} v${pkg.version || '0.0.0'}\n`;
-    if (pkg.description) banner += ` * ${pkg.description}\n`;
+    
+    let banner = '/**\n';
+    
+    // Название и версия
+    banner += ` * ${pkg.name || 'App'} v${pkg.version || '0.0.0'}\n`;
+    
+    // Описание
+    if (pkg.description) {
+      banner += ` * ${pkg.description}\n`;
+    }
+    
+    // Автор
+    if (pkg.author) {
+      if (typeof pkg.author === 'string') {
+        banner += ` * @author ${pkg.author}\n`;
+      } else if (typeof pkg.author === 'object') {
+        let authorStr = pkg.author.name || '';
+        if (pkg.author.email) authorStr += ` <${pkg.author.email}>`;
+        if (pkg.author.url) authorStr += ` (${pkg.author.url})`;
+        if (authorStr) banner += ` * @author ${authorStr}\n`;
+      }
+    }
+    
+    // Репозиторий
+    if (pkg.repository) {
+      let repoUrl = '';
+      if (typeof pkg.repository === 'string') {
+        repoUrl = pkg.repository;
+      } else if (typeof pkg.repository === 'object' && pkg.repository.url) {
+        repoUrl = pkg.repository.url;
+      }
+      
+      // Чистим git+ префикс и .git суффикс
+      repoUrl = repoUrl.replace(/^git\+/, '').replace(/\.git$/, '');
+      
+      if (repoUrl) {
+        banner += ` * @repository ${repoUrl}\n`;
+      }
+    }
+    
+    // Лицензия
+    if (pkg.license) {
+      banner += ` * @license ${pkg.license}\n`;
+    }
+    
     banner += ` */\n`;
+    
     return banner;
-  } catch { return ''; }
+  } catch (error) {
+    logger.warn('Не удалось прочитать package.json для баннера');
+    return '';
+  }
 }
 
 function getAllJsFiles(dir) {
@@ -105,15 +154,11 @@ async function bundleImport(importPath, exportNames, isDefault, workingDir) {
       },
       bundle: true,
       minify: true,
-      
-      // ЧИСТОТА КОДА:
-      keepNames: false,        // Убираем лишние defineProperty для имен функций
-      treeShaking: true,       // Выкидываем неиспользуемое
-      legalComments: 'none',   // Убираем лицензии
-      
-      charset: 'utf8',
+      keepNames: false,
+      treeShaking: true,
+      legalComments: 'none',
       format: 'esm',
-      target: 'esnext',        // Используем современный JS (стрелочные функции и т.д.)
+      target: 'es2020',
       write: false,
     });
 
@@ -124,28 +169,19 @@ async function bundleImport(importPath, exportNames, isDefault, workingDir) {
     }
 
     const lastExportIndex = code.lastIndexOf('export');
-    
-    if (lastExportIndex === -1) {
-      return `(() => { ${code}; return {}; })()`;
-    }
+    if (lastExportIndex === -1) return `(() => { ${code}; return {}; })()`;
 
     const body = code.slice(0, lastExportIndex);
     let exportStatement = code.slice(lastExportIndex);
 
     let returnObj = '';
-
     if (exportStatement.includes('default') && !exportStatement.includes('{')) {
       const val = exportStatement.replace(/export\s+default\s+/, '').trim();
       returnObj = `{ default: ${val} }`;
     } else {
-      const content = exportStatement
-        .replace(/^export\s*\{/, '')
-        .replace(/\}\s*$/, '')
-        .trim();
-      
+      const content = exportStatement.replace(/^export\s*\{/, '').replace(/\}\s*$/, '').trim();
       const parts = content.split(',');
       const props = [];
-
       parts.forEach(part => {
         part = part.trim();
         if (!part) return;
@@ -156,25 +192,17 @@ async function bundleImport(importPath, exportNames, isDefault, workingDir) {
           props.push(`${part}: ${part}`);
         }
       });
-      
       returnObj = `{ ${props.join(', ')} }`;
     }
 
-    let separator = ';';
-    if (body.trim().endsWith(';') || body.trim() === '') separator = '';
-    
-    // Если body пустой (например, библиотека просто экспортирует константу), не добавляем его
-    const bodyPart = body.trim() ? `${body}${separator}` : '';
-
-    return `(() => { ${bodyPart} return ${returnObj}; })()`;
+    const separator = (body.trim().endsWith(';') || !body.trim()) ? '' : ';';
+    return `(() => { ${body}${separator} return ${returnObj}; })()`;
 
   } catch (e) {
     logger.error(`Ошибка при сборке импорта: ${importPath}`);
-    if (e.errors) e.errors.forEach(err => console.error(` > ${err.text}`));
     throw e;
   }
 }
-
 
 async function processFileImports(filePath) {
   let code = fs.readFileSync(filePath, 'utf-8');
@@ -208,7 +236,17 @@ async function processFileImports(filePath) {
 }
 
 // ==========================================
-// 4. СБОРКА
+// 4. ИЗВЛЕЧЕНИЕ ГЛОБАЛЬНЫХ ИМЕН
+// ==========================================
+
+function extractGlobalNames(code) {
+  const functionNames = [...code.matchAll(/^function\s+([a-zA-Z0-9_$]+)/gm)].map(m => m[1]);
+  const varNames = [...code.matchAll(/^var\s+([a-zA-Z0-9_$]+)/gm)].map(m => m[1]);
+  return [...new Set([...functionNames, ...varNames])];
+}
+
+// ==========================================
+// 5. СБОРКА
 // ==========================================
 
 function buildFrontend() {
@@ -255,19 +293,80 @@ async function buildBackend() {
       finalContent += `\n// --- ${pFile.relPath} ---\n${pFile.code}\n`;
     }
 
+    const globalNames = extractGlobalNames(finalContent);
+    
+    if (globalNames.length > 0) {
+      logger.info(`Защищенные имена: ${globalNames.join(', ')}`);
+    }
+
     if (backendSettings.minify) {
-       logger.info('Финальная минификация...');
-       const result = await esbuild({
-         stdin: { contents: finalContent, loader: 'js' },
-         minifyWhitespace: true,
-         minifySyntax: true,
-         minifyIdentifiers: false,
-         legalComments: 'none', // И здесь тоже убираем комментарии для чистоты
-         charset: 'utf8',
-         target: 'es2020',
-         write: false,
-       });
-       finalContent = result.outputFiles[0].text;
+       logger.info('Полная минификация (Terser)...');
+       
+       // Проверяем, что код валидный перед отправкой в Terser
+       try {
+         new Function(finalContent);
+       } catch (parseError) {
+         logger.error('Код содержит синтаксические ошибки ДО минификации:');
+         console.error(parseError);
+         
+         fs.writeFileSync(path.join(outDir, 'debug_pre_minify.js'), finalContent);
+         logger.warn('Сохранен debug_pre_minify.js для анализа');
+         
+         process.exit(1);
+       }
+       
+       try {
+         const result = await minify(finalContent, {
+           ecma: 2020,
+           
+           parse: {
+             html5_comments: false,
+           },
+           
+           mangle: {
+             reserved: globalNames,
+             toplevel: true
+           },
+           
+           compress: {
+             dead_code: true,
+             drop_console: false,
+             passes: 2,
+           },
+           
+           format: {
+             comments: false,
+             ascii_only: false, // Сохраняем кириллицу
+             ecma: 2020,
+           },
+         });
+
+         if (result.code) {
+           finalContent = result.code;
+         } else {
+           logger.warn('Terser вернул пустой результат, используем исходный код');
+         }
+       } catch (e) {
+         logger.error('Ошибка минификации Terser:');
+         console.error(e);
+         
+         if (e.line !== undefined) {
+           const lines = finalContent.split('\n');
+           const start = Math.max(0, e.line - 3);
+           const end = Math.min(lines.length, e.line + 2);
+           
+           logger.error('\nКонтекст ошибки:');
+           for (let i = start; i < end; i++) {
+             const marker = i === e.line - 1 ? '>>> ' : '    ';
+             logger.error(`${marker}${i + 1}: ${lines[i]}`);
+           }
+         }
+         
+         fs.writeFileSync(path.join(outDir, 'debug_terser_error.js'), finalContent);
+         logger.warn('Сохранен debug_terser_error.js');
+         
+         process.exit(1);
+       }
     }
     
     const banner = getBanner();
@@ -275,21 +374,27 @@ async function buildBackend() {
     logger.success(`Собрано в ${backendSettings.outFile}`);
 
   } else {
+    // Режим без конкатенации
     for (const pFile of processedFiles) {
       let content = pFile.code;
       
+      const globalNames = extractGlobalNames(content);
+      
       if (backendSettings.minify) {
-         const result = await esbuild({
-           stdin: { contents: content, loader: 'js' },
-           minifyWhitespace: true,
-           minifySyntax: true,
-           minifyIdentifiers: false,
-           legalComments: 'none',
-           charset: 'utf8',
-           target: 'es2020',
-           write: false,
-         });
-         content = result.outputFiles[0].text;
+         try {
+           const result = await minify(content, {
+             ecma: 2020,
+             parse: { html5_comments: false },
+             mangle: { reserved: globalNames, toplevel: true },
+             compress: { dead_code: true, passes: 2, drop_console: false },
+             format: { comments: false, ascii_only: false, ecma: 2020 },
+           });
+           
+           if (result.code) content = result.code;
+         } catch (e) {
+           logger.error(`Ошибка минификации ${pFile.relPath}:`);
+           console.error(e);
+         }
       }
 
       const destPath = path.join(outDir, pFile.relPath);
