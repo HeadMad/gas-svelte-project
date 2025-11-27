@@ -1,0 +1,25 @@
+{
+  "manifest": "src/appsscript.json",
+  "package": "./package.json",
+  "outDir": "dist",
+  "frontend": {
+    "build": true,
+    "minify": true,
+    "src": "src/frontend"
+  },
+  "backend": {
+    "build": true,
+    "src": "src/backend",
+    "concatenate": true,
+    "outFile": "Code.js",
+    "minify": true,
+    "priorityOrder": [
+      "config.js",
+      "utils/logger.js"
+    ]
+  },
+  "deployment": {
+    "devDeploymentId": "AKfycbyjscZDRUQDEPNfGW7QEqC71fYuj9UcJ55P8PBRB8Q",
+    "prodDeploymentId": "AKfycbxI5oNL0RfonaAUr6ItiAb5uXrbA505SDC6tK5c9tylXQalQ658nGQFvsSKGfRsBEo-"
+  }
+}

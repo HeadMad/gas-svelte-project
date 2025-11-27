@@ -1,0 +1,348 @@
+<project_context>
+  <project_type>Google Apps Script + Svelte 5 Build Template</project_type>
+  
+  <architecture>
+    <description>
+      Template for developing Google Apps Script applications and libraries using Svelte 5.
+      Frontend: Svelte 5 with module support.
+      Backend: Google Apps Script.
+      Build: Custom builder with automatic concatenation.
+    </description>
+    
+    <structure>
+      src/
+      ├── appsscript.json       # GAS manifest (permissions, timezone)
+      ├── backend/              # Server-side code (GAS)
+      │   ├── main.js           # Entry point (doGet, doPost)
+      │   ├── utils.js          # Helper functions
+      │   └── ...               # Other modules
+      └── frontend/             # Client-side code
+          ├── index.html        # HTML with Svelte
+          ├── Simple.html       # Simple page without Svelte
+          └── components/       # Svelte components
+              ├── App.svelte
+              └── ...
+      
+      dist/                     # Build result
+      ├── appsscript.json
+      ├── Code.js               # All backend code in one file
+      └── *.html                # Minified HTML
+    </structure>
+    
+    <build_process>
+      1. Frontend: Svelte compilation → Minification → Inlining into HTML.
+      2. Backend: All .js files → Concatenation → Code.js.
+      3. Result in dist/ is ready for deployment.
+    </build_process>
+  </architecture>
+  
+  <backend_critical_rules>
+    ⚠️ All .js files from src/backend/ are automatically concatenated into Code.js.
+    ⚠️ Do NOT use import/export between local backend files.
+    ⚠️ All functions become GLOBAL in Code.js.
+    ⚠️ Use priorityOrder to control the execution sequence.
+    
+    ❌ INCORRECT:
+    // src/backend/main.js
+    import { formatDate } from './utils.js'; // DO NOT DO THIS
+    
+    ✅ CORRECT:
+    // src/backend/main.js
+    function doGet(e) {
+      const date = formatDate(new Date()); // function from utils.js is available globally
+      return HtmlService.createHtmlOutputFromFile('index');
+    }
+    
+    // src/backend/utils.js
+    function formatDate(date) {
+      return Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd.MM.yyyy');
+    }
+    
+    ✅ NPM packages allow imports:
+    import dayjs from 'dayjs'; // External dependencies - OK
+  </backend_critical_rules>
+  
+  <frontend_patterns>
+    <html_entry_point>
+      ```html
+      <!doctype html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0" />
+        <title>GAS Svelte Project</title>
+      </head>
+      <body>
+        <div id="app"></div>
+        <script type="module">
+          import { mount } from 'svelte';
+          import App from './components/App.svelte';
+          mount(App, { target: document.getElementById('app') })
+        </script>
+      </body>
+      </html>
+      ```
+      
+      - Any Svelte component can be mounted.
+      - The builder inlines all dependencies automatically.
+    </html_entry_point>
+    
+    <svelte_5_syntax>
+      - State: let value = $state(initial)
+      - Derived: let computed = $derived(expression)
+      - Effects: $effect(() => { ... })
+      - Props: let { prop1, prop2 } = $props()
+      - Bindable props: let { value = $bindable() } = $props()
+      - Events: onclick={handler} instead of on:click={handler}
+      - Slots: {@render children()}
+    </svelte_5_syntax>
+    
+    <api_calls>
+      ```javascript
+      google.script.run
+        .withSuccessHandler((result) => {
+          // Handle success
+        })
+        .withFailureHandler((error) => {
+          // Handle error
+        })
+        .serverFunction(arg1, arg2);
+      ```
+    </api_calls>
+  </frontend_patterns>
+  
+  <build_configuration>
+    ```javascript
+    // build.js
+    const CONFIG = {
+      srcManifest: 'src/appsscript.json',
+      srcFrontend: 'src/frontend',
+      srcBackend: 'src/backend',
+      outDir: 'dist',
+      packageJsonPath: './package.json',
+      
+      modules: {
+        frontend: true,  // Build frontend
+        backend: true    // Build backend
+      },
+      
+      backendSettings: {
+        concatenate: true,
+        outFile: 'Code.js',
+        minify: true,
+        priorityOrder: [
+          'main.js',      // First (doGet, doPost)
+          'utils.js'      // Second (helpers)
+          // Others follow in alphabetical order
+        ]
+      }
+    };
+    ```
+    
+    priorityOrder determines the sequence of files in Code.js:
+    - main.js - Entry point
+    - utils.js - Helpers
+    - Other files are added automatically alphabetically.
+  </build_configuration>
+  
+  <workflow>
+    <development>
+      1. Develop in src/:
+         - Frontend: HTML + Svelte components.
+         - Backend: JS files WITHOUT import/export between themselves.
+      
+      2. Build: npm run build
+         - Check result in dist/.
+      
+      3. Deploy: npm run push
+         - Code is sent to GAS.
+    </development>
+    
+    <file_organization>
+      Frontend:
+      - One HTML = one page.
+      - Components in components/.
+      - Styles inside components or separate files.
+      
+      Backend:
+      - main.js - Mandatory entry point.
+      - utils.js - Helper functions.
+      - Other files - Additional logic.
+      - All functions are global.
+      - priorityOrder controls sequence.
+    </file_organization>
+  </workflow>
+  
+  <best_practices>
+    <backend>
+      - ❌ Do NOT use import/export between backend files.
+      - ✅ Declare functions directly.
+      - ✅ Use priorityOrder for sequence.
+      - ✅ NPM packages can be imported.
+      - Use try-catch for error handling.
+      - Use Logger.log for debugging.
+      - Return JSON-serializable data.
+    </backend>
+    
+    <frontend>
+      - Use Svelte 5 syntax (runes).
+      - $state for reactivity.
+      - $effect for side effects.
+      - Extract reusable code into components.
+      - Handle API call errors.
+    </frontend>
+  </best_practices>
+</project_context>
+
+<interaction_rules>
+  <when_creating_features>
+    Frontend:
+    1. Create Svelte components in src/frontend/components/.
+    2. Import them in HTML via module import.
+    3. Use Svelte 5 syntax.
+    
+    Backend:
+    1. Create .js file in src/backend/.
+    2. ❌ Do NOT import other backend files.
+    3. ✅ Just declare functions.
+    4. Add to priorityOrder if necessary.
+  </when_creating_features>
+  
+  <critical_rules>
+    ❗ ❌ Do NOT use import/export between backend files.
+    ❗ ✅ All backend .js files go into Code.js automatically.
+    ❗ ✅ All functions become global.
+    ❗ priorityOrder defines the sequence.
+    ❗ Svelte 5 syntax only.
+  </critical_rules>
+</interaction_rules>
+
+<examples>
+  <example type="backend_correct_structure">
+    ```javascript
+    // src/backend/main.js
+    function doGet(e) {
+      // function formatDate from utils.js is automatically available
+      const date = formatDate(new Date());
+      return HtmlService.createHtmlOutputFromFile('index');
+    }
+    
+    function saveData(data) {
+      // function validateEmail from utils.js is available
+      if (!validateEmail(data.email)) {
+        return { success: false, error: 'Invalid email' };
+      }
+      return { success: true };
+    }
+    ```
+    
+    ```javascript
+    // src/backend/utils.js
+    function formatDate(date) {
+      return Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd.MM.yyyy');
+    }
+    
+    function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    ```
+    
+    Result in dist/Code.js:
+    ```javascript
+    // All functions in one file
+    function doGet(e) {
+      const date = formatDate(new Date());
+      return HtmlService.createHtmlOutputFromFile('index');
+    }
+    
+    function saveData(data) {
+      if (!validateEmail(data.email)) {
+        return { success: false, error: 'Invalid email' };
+      }
+      return { success: true };
+    }
+    
+    function formatDate(date) {
+      return Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd.MM.yyyy');
+    }
+    
+    function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    ```
+  </example>
+  
+  <example type="npm_packages">
+    ```javascript
+    // src/backend/main.js
+    import dayjs from 'dayjs'; // ✅ NPM packages can be imported
+    
+    function doGet(e) {
+      const now = dayjs().format('DD.MM.YYYY');
+      Logger.log(now);
+      return HtmlService.createHtmlOutputFromFile('index');
+    }
+    ```
+  </example>
+  
+  <example type="svelte_component">
+    ```html
+    <!-- src/frontend/components/Modal.svelte -->
+    <script>
+      let { isOpen = $bindable(false), title, children } = $props();
+      
+      function close() {
+        isOpen = false;
+      }
+    </script>
+    
+    {#if isOpen}
+      <div class="modal-backdrop" onclick={(e) => e.target === e.currentTarget && close()}>
+        <div class="modal-content">
+          <h2>{title}</h2>
+          <button onclick={close}>×</button>
+          {@render children()}
+        </div>
+      </div>
+    {/if}
+    
+    <style>
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+    ```
+  </example>
+  
+  <example type="api_usage">
+    ```javascript
+    // In Svelte component
+    let data = $state(null);
+    let loading = $state(false);
+    
+    function loadData() {
+      loading = true;
+      
+      google.script.run
+        .withSuccessHandler((result) => {
+          data = result;
+          loading = false;
+        })
+        .withFailureHandler((error) => {
+          console.error(error);
+          loading = false;
+        })
+        .getData();
+    }
+    
+    $effect(() => {
+      loadData();
+    });
+    ```
+  </example>
+</examples>
