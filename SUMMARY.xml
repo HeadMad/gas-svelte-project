@@ -176,7 +176,7 @@
   <best_practices>
     <backend>
       - ❌ Do NOT use import/export between backend files.
-      - ✅ Declare functions directly.
+      - ✅ Declare functions directly using the `function` keyword (e.g., `function myFunction() {}`). Avoid `const`, `let`, or `var` for top-level server methods to ensure they are globally accessible and callable by `google.script.run`.
       - ✅ Use priorityOrder for sequence.
       - ✅ NPM packages can be imported.
       - Use try-catch for error handling.

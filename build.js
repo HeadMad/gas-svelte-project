@@ -10,6 +10,9 @@ import { minify as minifyHtml } from 'html-minifier-terser';
 
 const CONFIG_PATH = './build.config.json';
 let CONFIG = loadConfig();
+const SVELTE_CONFIG = {
+  compilerOptions: { experimental: { async: true } }
+}
 
 // ==========================================
 // 1. CONFIG & UTILS
@@ -248,14 +251,14 @@ async function buildFrontend() {
   logger.info('Building Frontend...');
   const srcDir = path.resolve(process.cwd(), CONFIG.frontend.src);
   const outDir = path.resolve(process.cwd(), CONFIG.outDir);
-  
+
   const htmlFiles = getAllHtmlFiles(CONFIG.frontend.src);
   if (htmlFiles.length === 0) return;
 
   const shouldMinify = CONFIG.frontend.minify;
 
   const plugins = [
-    svelte(),
+    svelte(SVELTE_CONFIG),
     viteSingleFile({ removeViteModuleLoader: true })
   ];
   if (shouldMinify) plugins.push(htmlMinifierPlugin(true));
@@ -305,7 +308,7 @@ async function startDevServer() {
   const server = await createServer({
     root: path.resolve(process.cwd(), CONFIG.frontend.src),
     configFile: false,
-    plugins: [svelte()],
+    plugins: [svelte(SVELTE_CONFIG)],
     server: { port: 3000, open: true, cors: true }
   });
   await server.listen();
@@ -332,11 +335,11 @@ function sortFiles(files, srcDir, priorityList) {
 
 async function buildBackend() {
   if (!CONFIG.backend.build) return;
-  
+
   logger.info('Building Backend...');
   const srcDir = CONFIG.backend.src;
   const outDir = CONFIG.outDir;
-  
+
   const allFiles = getAllJsFiles(srcDir);
   if (!allFiles.length) return;
 
@@ -347,10 +350,10 @@ async function buildBackend() {
   for (const file of sortedFiles) {
     const processedCode = await processFileImports(file);
     const cleanCode = processedCode.replace(/^export\s+(function|const|let|var|class)/gm, '$1');
-    processedFiles.push({ 
-      path: file, 
-      relPath: path.relative(srcDir, file), 
-      code: cleanCode 
+    processedFiles.push({
+      path: file,
+      relPath: path.relative(srcDir, file),
+      code: cleanCode
     });
   }
 
@@ -360,11 +363,11 @@ async function buildBackend() {
     // --- Concatenation Mode ---
     let finalContent = '';
     for (const pFile of processedFiles) finalContent += `\n// --- ${pFile.relPath} ---\n${pFile.code}\n`;
-    
+
     if (shouldMinify) {
-       finalContent = await minifyCode(finalContent);
+      finalContent = await minifyCode(finalContent);
     }
-    
+
     const outFile = path.join(outDir, CONFIG.backend.outFile);
     fs.writeFileSync(outFile, getBanner() + finalContent);
     logger.success(`Backend concatenated to ${CONFIG.backend.outFile}`);
@@ -372,16 +375,16 @@ async function buildBackend() {
   } else {
     // --- Separate Files Mode ---
     logger.info('Processing backend as separate files...');
-    
+
     for (const pFile of processedFiles) {
       let content = pFile.code;
       if (shouldMinify) content = await minifyCode(content);
 
       const destPath = path.join(outDir, pFile.relPath);
       const destDir = path.dirname(destPath);
-      
+
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-      
+
       fs.writeFileSync(destPath, content);
       logger.info(`-> ${pFile.relPath}`);
     }
@@ -416,20 +419,20 @@ async function run() {
   if (IS_PUSH) {
     console.log('');
     claspPush();
-    
+
     const devId = getDevDeploymentId();
     if (devId) {
       logger.link('DEV Web App', `https://script.google.com/macros/s/${devId}/dev`);
     } else {
       // Если не нашли сразу (первый запуск), пробуем еще раз
       try {
-         const output = runCommand('npx clasp deployments');
-         const match = output.match(/- ([a-zA-Z0-9_-]+)\s+@HEAD/);
-         if (match && match[1]) {
-           updateDeploymentId('devDeploymentId', match[1]);
-           logger.link('DEV Web App', `https://script.google.com/macros/s/${match[1]}/dev`);
-         }
-      } catch(e) {}
+        const output = runCommand('npx clasp deployments');
+        const match = output.match(/- ([a-zA-Z0-9_-]+)\s+@HEAD/);
+        if (match && match[1]) {
+          updateDeploymentId('devDeploymentId', match[1]);
+          logger.link('DEV Web App', `https://script.google.com/macros/s/${match[1]}/dev`);
+        }
+      } catch (e) { }
     }
   }
 

@@ -54,6 +54,29 @@ clasp login
 | `npm run push` | Сборка + загрузка кода на Google Drive. |
 | `npm run deploy` | Полный цикл релиза (Build -> Push -> Version). |
 
+### Опции
+
+Процесс сборки можно настроить через `build.config.json`.
+
+| Опция | Тип | Описание | По умолчанию |
+| :--- | :--- | :--- | :--- |
+| `manifest` | `string` | Путь к файлу манифеста (`appsscript.json`). | `src/appsscript.json` |
+| `package` | `string` | Путь к `package.json`. | `./package.json` |
+| `outDir` | `string` | Выходной каталог для сборки. | `dist` |
+| `frontend.build` | `boolean` | Если `true`, собирает фронтенд. | `true` |
+| `frontend.src`| `string` | Исходный каталог для фронтенда. | `src/frontend` |
+| `frontend.minify` | `boolean` | Если `true`, минифицирует код фронтенда. | `true` |
+| `backend.build` | `boolean` | Если `true`, собирает бэкенд. | `true` |
+| `backend.src` | `string` | Исходный каталог для бэкенда. | `src/backend` |
+| `backend.concatenate`| `boolean`| Если `true`, объединяет файлы бэкенда. | `true` |
+| `backend.outFile`| `string` | Имя объединенного выходного файла. | `Code.js` |
+| `backend.minify` | `boolean` | Если `true`, минифицирует код бэкенда. | `true` |
+| `backend.priorityOrder`| `string[]`| Массив файлов для первоочередного включения. | `[]` |
+| `deployment.devDeploymentId` | `string` | ID развертывания для среды разработки (URL веб-приложения). | "" |
+| `deployment.prodDeploymentId` | `string` | ID развертывания для производственной среды (URL веб-приложения). | "" |
+
+---
+
 ### Подключение библиотеки в свой проект:
 
 1. Откройте ваш проект Google Apps Script

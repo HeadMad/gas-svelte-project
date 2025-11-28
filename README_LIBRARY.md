@@ -50,9 +50,31 @@ Create a `.clasp.json` file in the project root:
 
 | Command | Description |
 | :--- | :--- |
+| `npm run dev` | Run dev server for editing html + svelte files. |
 | `npm run build` | Build the project into the `dist/` folder. |
 | `npm run push` | Build + Push code to Google Drive. |
 | `npm run deploy` | Full release cycle (Build -> Push -> Version). |
+
+### Options
+
+The build process can be configured via `build.config.json`.
+
+| Option | Type | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `manifest` | `string` | Path to the manifest file (`appsscript.json`). | `src/appsscript.json` |
+| `package` | `string` | Path to `package.json`. | `./package.json` |
+| `outDir` | `string` | The output directory for the build. | `dist` |
+| `frontend.build` | `boolean` | If `true`, builds the frontend. | `true` |
+| `frontend.src`| `string` | Source directory for the frontend. | `src/frontend` |
+| `frontend.minify` | `boolean` | If `true`, minifies the frontend code. | `true` |
+| `backend.build` | `boolean` | If `true`, builds the backend. | `true` |
+| `backend.src` | `string` | Source directory for the backend. | `src/backend` |
+| `backend.concatenate`| `boolean`| If `true`, concatenates backend files. | `true` |
+| `backend.outFile`| `string` | Name of the concatenated output file. | `Code.js` |
+| `backend.minify` | `boolean` | If `true`, minifies the backend code. | `true` |
+| `backend.priorityOrder`| `string[]`| Array of files to be included first. | `[]` |
+| `deployment.devDeploymentId` | `string` | Deployment ID for the dev environment. | "" |
+| `deployment.prodDeploymentId` | `string` | Deployment ID for the production environment. | "" |
 
 ### Adding the library to your project:
 

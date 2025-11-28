@@ -1,95 +1,56 @@
-// Инициализация БД (если нет)
-function getDB() {
-  const props = PropertiesService.getScriptProperties();
-  let mapData = props.getProperty('GAME_MAP');
-  
-  if (!mapData) {
-    // Создаем пустую карту 10x10
-    const map = [];
-    for (let y = 0; y < 10; y++) {
-      const row = [];
-      for (let x = 0; x < 10; x++) {
-        row.push({ owner: null, power: 0, x, y });
-      }
-      map.push(row);
-    }
-    mapData = JSON.stringify(map);
-    props.setProperty('GAME_MAP', mapData);
-  }
-  
-  return JSON.parse(mapData);
-}
-
-function saveDB(map) {
-  PropertiesService.getScriptProperties().setProperty('GAME_MAP', JSON.stringify(map));
-}
-
-// --- API ---
-
-export function doGet() {
+// Serve the web application
+function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Pixel Kingdom ⚔️')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0');
+    .setTitle('Todo List')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// Получить состояние игры
-export function getGameState() {
-  const userEmail = Session.getActiveUser().getEmail() || 'Anon_' + Math.floor(Math.random() * 1000);
-  const map = getDB();
-  
-  // Считаем владения игрока
-  let lands = 0;
-  map.forEach(row => row.forEach(cell => {
-    if (cell.owner === userEmail) lands++;
-  }));
+function getTodos() {
+  const userProperties = PropertiesService.getUserProperties();
+  const todos = userProperties.getProperty('todos');
+  return todos ? JSON.parse(todos) : [];
+}
 
-  return {
-    map: map,
-    me: userEmail,
-    stats: { lands: lands, energy: 10 } // Упростим: энергия пока бесконечная или 10 на ход
+function saveTodos(todos) {
+  const userProperties = PropertiesService.getUserProperties();
+  userProperties.setProperty('todos', JSON.stringify(todos));
+}
+
+function addTodo(text) {
+  if (!text) {
+    throw new Error('Todo text is required.');
+  }
+  const todos = getTodos();
+  const newTodo = {
+    id: Utilities.getUuid(),
+    text,
+    completed: false,
+    createdAt: new Date().toISOString(),
   };
+  todos.push(newTodo);
+  saveTodos(todos);
+  return newTodo;
 }
 
-// Атака клетки
-export function attackCell(x, y) {
-  // Блокировка (Lock), чтобы два игрока не ударили одновременно
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(2000)) return { success: false, error: 'Server busy' };
-
-  try {
-    const userEmail = Session.getActiveUser().getEmail() || 'Anon';
-    const map = getDB();
-    
-    if (x < 0 || x >= 10 || y < 0 || y >= 10) return { error: 'Invalid coords' };
-
-    const target = map[y][x];
-
-    // Логика боя
-    if (target.owner === userEmail) {
-      // Укрепляем свою землю
-      target.power += 1;
-    } else {
-      // Атакуем чужую
-      if (target.power > 0) {
-        target.power -= 1; // Снимаем защиту
-      } else {
-        // Захват!
-        target.owner = userEmail;
-        target.power = 1;
-      }
-    }
-
-    saveDB(map);
-    
-    return { 
-      success: true, 
-      map: map, // Возвращаем обновленную карту
-      message: target.owner === userEmail ? 'Захвачено!' : 'Атака успешна!' 
-    };
-
-  } catch (e) {
-    return { error: e.message };
-  } finally {
-    lock.releaseLock();
+function toggleTodo(id) {
+  const todos = getTodos();
+  const todo = todos.find(t => t.id === id);
+  if (todo) {
+    todo.completed = !todo.completed;
+    saveTodos(todos);
+    return todo;
+  } else {
+    throw new Error('Todo not found.');
   }
 }
+
+function deleteTodo(id) {
+  let todos = getTodos();
+  const initialLength = todos.length;
+  todos = todos.filter(t => t.id !== id);
+  if (todos.length === initialLength) {
+      throw new Error('Todo not found to delete.');
+  }
+  saveTodos(todos);
+  return { status: 'success', deleted: id };
+};
