@@ -1,0 +1,188 @@
+<project_context>
+  <project_type>Google Apps Script Template with Modern Frontend Build System</project_type>
+  
+  <architecture>
+    <description>
+      A template for developing Google Apps Script (GAS) applications and libraries.
+      It features a powerful custom build system (`build.js`) managed by a `build.config.json` file.
+      This system supports a modern frontend development workflow with Svelte 5 and a flexible backend workflow with support for NPM packages.
+    </description>
+    
+    <structure>
+      src/
+      ├── appsscript.json       # GAS manifest (permissions, timezone, etc.)
+      ├── backend/              # Server-side .js/.gs code
+      └── frontend/             # Client-side .html files and Svelte components
+      
+      dist/                     # Build output, ready for deployment
+      
+      build.config.json       # Main configuration for the build process
+      build.js                # The build script orchestrator
+      DOCS/                     # Documentation templates and context files
+    </structure>
+    
+    <build_process>
+      The build process is highly configurable via `build.config.json`.
+
+      <frontend>
+        1. All `.html` files from `frontend.src` and `frontend.include` paths are collected.
+        2. The script calculates the correct final destination path for each file, preserving subdirectories and resolving name collisions by adding `_1`, `_2` suffixes.
+        3. Each file is built in complete isolation into a temporary directory using Vite and `vite-plugin-singlefile`. This correctly bundles Svelte components and other assets into a single HTML file.
+        4. The final HTML file is then moved from the temporary directory to its correct nested path in the `dist` folder.
+        5. This "Build then Move" strategy ensures correct output structure and avoids issues with Vite's path handling.
+      </frontend>
+
+      <backend>
+        1. All `.js`/`.gs` files from `backend.src` and `backend.include` are collected.
+        2. NPM package imports (e.g., `import dayjs from 'dayjs'`) are detected. Each imported package is bundled into an isolated IIFE and replaces the import statement. This allows using NPM modules in the GAS environment.
+        3. If `backend.concatenate` is `true`, all backend files are concatenated into a single output file, respecting the order defined in `backend.priorityOrder`.
+        4. If `backend.concatenate` is `false`, each file is processed individually, preserving its calculated path structure (with collision resolution) in the `dist` directory.
+      </backend>
+    </build_process>
+  </architecture>
+  
+  <backend_critical_rules>
+    ⚠️ **Do NOT use `import`/`export` for local backend files** (e.g., between `main.js` and `utils.js`). The build system handles file inclusion. If files are concatenated, all functions exist in the same global scope. If they are separate, they are deployed as separate files to GAS and cannot see each other's scopes anyway.
+    
+    ✅ **NPM package imports are allowed and encouraged!** The build system is designed to handle them.
+    `import dayjs from 'dayjs'; // This works!`
+
+    ✅ **Declare global functions normally.**
+    `function doGet(e) { ... }` is the correct way to define entry points. The build system ensures they are globally available.
+
+    ⚠️ **For library use, only `function` and `var` are visible.** When another script uses your project as a library, only top-level functions (e.g. `function myFunction() {}`) and variables declared with `var` are exposed. Top-level `const` and `let` are not visible. This rule is critical for all functions called from the client (`google.script.run`) or from another library.
+  </backend_critical_rules>
+  
+  <frontend_patterns>
+    <description>
+      The frontend is built with Vite and Svelte 5. The build process creates self-contained HTML files in the `dist` directory.
+    </description>
+    <api_calls>
+      Standard client-to-server communication in GAS is done via `google.script.run`.
+      ```javascript
+      google.script.run
+        .withSuccessHandler((result) => {
+          console.log('Server returned:', result);
+        })
+        .withFailureHandler((error) => {
+          console.error('Server error:', error.message);
+        })
+        .myServerFunction(arg1, arg2);
+      ```
+    </api_calls>
+  </frontend_patterns>
+  
+  <build_configuration>
+    <description>
+      The entire build process is controlled by `build.config.json`. This file allows for fine-grained control over both frontend and backend builds without modifying the build script itself.
+    </description>
+    <example_config>
+    ```json
+    {
+      "clasp": {
+        "scriptId": "YOUR_SCRIPT_ID_HERE"
+      },
+      "manifest": "src/appsscript.json",
+      "package": "./package.json",
+      "outDir": "dist",
+      "frontend": {
+        "build": true,
+        "src": "src/frontend",
+        "minify": true,
+        "include": ["../test"]
+      },
+      "backend": {
+        "build": true,
+        "src": "src/backend",
+        "concatenate": false,
+        "outFile": "Code.js",
+        "minify": true,
+        "include": [],
+        "priorityOrder": [
+          "main.js"
+        ]
+      }
+    }
+    ```
+    </example_config>
+    <key_options>
+     - `clasp.scriptId`: **Crucial.** Links the project to your Google Apps Script file.
+     - `frontend.include`: Array of additional files or **directories** to include in the frontend build. The script preserves nested structures from included directories.
+     - `backend.concatenate`: If `true`, combines all backend files into one. If `false`, deploys them as separate files.
+     - `backend.priorityOrder`: Only used when `concatenate` is `true`. Defines the order of files at the start of the combined script.
+    </key_options>
+  </build_configuration>
+  
+  <workflow>
+    <development>
+      1. Configure `build.config.json` with your `scriptId`.
+      2. Develop code in the `src/` directory.
+      3. Run `npm run build` to compile the project into `dist/`.
+      4. Run `npm run push` to send the `dist/` content to your GAS project.
+      5. Run `npm run deploy` to create a new versioned deployment (for web apps).
+      6. For frontend-only work, `npm run dev` starts a local Vite server.
+    </development>
+  </workflow>
+
+  <best_practices>
+    <backend>
+      - Do NOT use `import`/`export` between your own backend files.
+      - DO use `import` for NPM packages.
+      - Declare server-callable functions with the `function` keyword to ensure they are global.
+    </backend>
+    
+    <frontend>
+      - Use Svelte 5 runes (`$state`, `$derived`, `$effect`).
+      - Each `.html` file is treated as a separate page/entry point.
+      - The build process will automatically handle all component and asset bundling for each HTML file.
+    </frontend>
+  </best_practices>
+</project_context>
+
+<interaction_rules>
+  <when_creating_features>
+    Frontend:
+    1. Create `.html` files or `.svelte` components in `src/frontend/` or any `include` directory.
+    2. The build system will automatically find and process them.
+    
+    Backend:
+    1. Create `.js` file in `src/backend/` or any `include` directory.
+    2. Do NOT import other local backend files. Just declare global functions and call them.
+    3. If concatenating, add to `priorityOrder` in `build.config.json` if the script order is important.
+  </when_creating_features>
+  
+  <critical_rules>
+    - The build process is controlled by `build.config.json`, not by editing `build.js`.
+    - Local backend files share a global scope (if concatenated) or are entirely separate (if not). Do not use ES6 modules between them.
+    - NPM modules CAN and SHOULD be imported directly in backend code.
+  </critical_rules>
+</interaction_rules>
+
+<examples>
+  <example type="backend_npm_import">
+    ```javascript
+    // src/backend/main.js
+    import dayjs from 'dayjs'; // ✅ This works! The builder will inline it.
+    
+    function testDayJs() {
+      const now = dayjs().format('DD.MM.YYYY');
+      Logger.log(now);
+    }
+    ```
+  </example>
+  <example type="frontend_file_structure">
+    // build.config.json
+    "frontend": {
+        "src": "src/frontend",
+        "include": ["../test_assets"]
+    }
+
+    // Source file structure:
+    src/frontend/index.html
+    src/test_assets/dialogs/about.html
+    
+    // Resulting `dist` structure:
+    dist/index.html
+    dist/dialogs/about.html
+  </example>
+</examples>

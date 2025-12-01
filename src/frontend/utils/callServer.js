@@ -1,9 +1,7 @@
-export default new Proxy({}, {
-    get(_, func) {
-      return (...args) => new Promise((resolve, reject) => {
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject)[func](...args);
-      });
-    },
-  });
+export default function callServer(method, ...args) {
+  return new Promise((resolve, reject) => {
+    return google.script.run
+    .withSuccessHandler(resolve)
+    .withFailureHandler(reject)[method](...args);
+  })
+};

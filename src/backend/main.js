@@ -1,56 +1,52 @@
-// Serve the web application
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Todo List')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+const HTML_FILE = 'index.html';
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile(HTML_FILE)
+  .setTitle('Todo List')
+  .addMetaTag('viewport', 'user-scalable=no, width=device-width, initial-scale=1')
+  .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function getTodos() {
-  const userProperties = PropertiesService.getUserProperties();
-  const todos = userProperties.getProperty('todos');
-  return todos ? JSON.parse(todos) : [];
+const _getStore = () => {
+  const user = Session.getActiveUser().getEmail();
+  const properties = PropertiesService.getUserProperties();
+  const get = () => JSON.parse(properties.getProperty(user) || '[]');
+  const set = (data) => properties.setProperty(user, JSON.stringify(data));
+  return { get, set };
+};
+
+function getTasks() {
+  return _getStore().get();
 }
 
-function saveTodos(todos) {
-  const userProperties = PropertiesService.getUserProperties();
-  userProperties.setProperty('todos', JSON.stringify(todos));
-}
-
-function addTodo(text) {
-  if (!text) {
-    throw new Error('Todo text is required.');
-  }
-  const todos = getTodos();
-  const newTodo = {
+function addTask(text) {
+  const store = _getStore();
+  const tasks = store.get();
+  const newTask = {
     id: Utilities.getUuid(),
     text,
     completed: false,
     createdAt: new Date().toISOString(),
   };
-  todos.push(newTodo);
-  saveTodos(todos);
-  return newTodo;
+  store.set([...tasks, newTask]);
+  return newTask;
 }
 
-function toggleTodo(id) {
-  const todos = getTodos();
-  const todo = todos.find(t => t.id === id);
-  if (todo) {
-    todo.completed = !todo.completed;
-    saveTodos(todos);
-    return todo;
-  } else {
-    throw new Error('Todo not found.');
-  }
+function updateTask(task) {
+  const store = _getStore();
+  const tasks = store.get();
+  const index = tasks.findIndex((t) => t.id === task.id);
+  if (index === -1) throw new Error('Task not found');
+  tasks[index] = { ...tasks[index], ...task };
+  store.set(tasks);
+  return tasks[index];
 }
 
-function deleteTodo(id) {
-  let todos = getTodos();
-  const initialLength = todos.length;
-  todos = todos.filter(t => t.id !== id);
-  if (todos.length === initialLength) {
-      throw new Error('Todo not found to delete.');
-  }
-  saveTodos(todos);
-  return { status: 'success', deleted: id };
-};
+function deleteTask(id) {
+  const store = _getStore();
+  const tasks = store.get();
+  const newTasks = tasks.filter((t) => t.id !== id);
+  if (tasks.length === newTasks.length) throw new Error('Task not found');
+  store.set(newTasks);
+  return true;
+}

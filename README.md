@@ -1,131 +1,69 @@
-# Google Apps Script + Svelte 5 Template (No-TS)
+# Шаблон для проектов Google Apps Script + Svelte 5
 
-A professional, modern template for developing Google Apps Script (GAS) projects using **Svelte 5** and pure **JavaScript**.
+Это репозиторий-шаблон для создания современных веб-приложений и библиотек на платформе **Google Apps Script (GAS)** с использованием **Svelte 5**.
 
-This project uses a unique **"Injection Strategy"** build system: you write modular code with `import`, and the builder automatically bundles dependencies directly into your GAS files, preserving the global scope for triggers like `doGet` and `onOpen`.
+Он включает в себя мощную систему сборки, которая позволяет использовать современный JavaScript (включая NPM-пакеты) на бэкенде и Svelte 5 на фронтенде, автоматически разрешая все зависимости и подготавливая код для загрузки в среду GAS.
 
-## 🌟 Features
+## 🌟 Ключевые особенности
 
-*   **Svelte 5 (Runes):** Full support for `$state`, `$effect`, and the latest Svelte reactivity features.
-*   **Smart Injection Build:** Use `import { format } from 'date-fns'` directly in GAS files. The library is automatically downloaded, bundled into an isolated closure, and injected inline.
-*   **Zero GlobalThis Hacks:** Write standard functions like `function doGet()`. The builder ensures Google Apps Script can see them.
-*   **Vite:** Lightning-fast frontend build process (bundles everything into a single HTML file).
-*   **Unicode Friendly:** The builder is configured to handle non-Latin characters (like Cyrillic) correctly during minification.
+-   **Продвинутая система сборки:** Скрипт `build.js` автоматизирует весь процесс, от компиляции Svelte до сборки бэкенда.
+-   **Поддержка NPM в GAS:** Используйте `import` для подключения NPM-пакетов прямо в вашем `.js` файле для бэкенда. Сборщик автоматически встроит их в код.
+-   **Сохранение структуры и разрешение конфликтов:** Сборщик корректно обрабатывает вложенные папки и автоматически переименовывает файлы с одинаковыми именами из разных источников.
+-   **Современный фронтенд:** Полная поддержка **Svelte 5** (руны `$state`, `$effect` и т.д.) и быстрая сборка с помощью **Vite**.
+-   **Гибкая конфигурация:** Управляйте всем процессом через единый файл `build.config.json`.
+-   **Готовые шаблоны документации:** В папке `DOCS/` находятся готовые `README.md` файлы для вашего будущего проекта.
 
-## 📂 Project Structure
+## 🚀 Как использовать этот шаблон
 
-```text
-root/
-├── .clasp.json           # Clasp settings (links to Google Cloud Project)
-├── package.json          # Dependencies and scripts
-├── build.js              # (!) The main build script (Backend + Frontend)
-├── vite.config.js        # Vite settings
-│
-├── src/
-│   ├── appsscript.json   # GAS Manifest (permissions, timezone)
-│   │
-│   ├── backend/          # Server-side code (GAS)
-│   │   ├── main.js       # Entry point
-│   │   ├── utils.js
-│   │   └── ...
-│   │
-│   └── frontend/         # Client-side code (Svelte)
-│       ├── index.html
-│       ├── main.js
-│       └── App.svelte
-│
-└── dist/                 # Build output (automatically cleaned)
-```
-
-## 🚀 Installation & Setup
-
-1.  **Install Dependencies:**
+1.  **Создайте репозиторий:** Нажмите кнопку **"Use this template"** вверху этой страницы, чтобы создать новый репозиторий на основе этого шаблона.
+2.  **Клонируйте репозиторий:**
+    ```bash
+    git clone https://github.com/ВАШ_АККАУНТ/ВАШ_РЕПОЗИТОРИЙ.git
+    ```
+3.  **Установите зависимости:**
     ```bash
     npm install
     ```
+4.  **Настройте проект GAS:**
+    -   Создайте новый проект в [Google Apps Script](https://script.google.com).
+    -   Скопируйте его **Script ID** из настроек проекта (`Project Settings -> IDs -> Script ID`).
+    -   Вставьте этот ID в файл `build.config.json` в поле `clasp.scriptId`.
 
-2.  **Setup Clasp:**
-    Install Clasp globally and log in:
-    ```bash
-    npm install -g @google/clasp
-    clasp login
-    ```
+## 🛠️ Процесс разработки и сборки
 
-3.  **Link to Google Project:**
-    Create a `.clasp.json` file in the root directory:
-    ```json
-    {
-      "scriptId": "YOUR_SCRIPT_ID",
-      "rootDir": "./dist"
-    }
-    ```
+### Конфигурация (`build.config.json`)
 
-## 🛠 Commands (Scripts)
+Это главный файл для управления сборкой. В нём вы указываете пути к исходникам, включаете или отключаете сборку фронтенда/бэкенда, настраиваете конкатенацию и минификацию.
 
-| Command | Description |
+> Полное описание всех опций находится в файле **`DOCS/CONFIG.ru.md`**.
+
+### Структура проекта
+
+-   `src/frontend/`: Исходные файлы для фронтенда (HTML, Svelte компоненты).
+-   `src/backend/`: Исходные файлы для бэкенда (серверный `.js` код).
+-   `src/appsscript.json`: Манифест проекта GAS.
+-   `dist/`: Папка, куда попадает результат сборки. **Содержимое генерируется автоматически.**
+-   `build.js`: Скрипт сборки.
+-   `build.config.json`: Конфигурация сборки.
+
+### Основные команды
+
+| Команда | Описание |
 | :--- | :--- |
-| `npm run dev` | Starts local Vite server. Frontend only (Hot Module Replacement). Backend calls are mocked. |
-| `npm run build` | Full production build to the `dist/` folder. |
-| `npm run push` | Builds and pushes code to Google Drive (Development mode). |
-| `npm run deploy` | **Full Release Cycle:** Build → Push → Create a new Versioned Deployment. |
+| `npm run dev` | Запускает локальный сервер для разработки фронтенда с автообновлением. |
+| `npm run build` | Выполняет полную сборку проекта в папку `dist`. |
+| `npm run push` | Собирает проект и загружает его в Google Apps Script (в режиме разработки). |
+| `npm run deploy` | Полный цикл релиза: сборка, загрузка и создание новой версии развертывания. |
 
+## ✍️ Документация для вашего проекта
 
-## 🧩 How to Write Code (Backend)
+Этот `README.md`, который вы сейчас читаете, является документацией для самого **шаблона**. Для вашего проекта рекомендуется использовать один из готовых шаблонов, которые лежат в папке `DOCS/`.
 
-The builder uses an "Inlining" strategy. This allows you to use the power of NPM libraries while remaining compatible with the GAS environment.
+-   **Веб-приложение?** Используйте `DOCS/README_WEB_APP.ru.md`.
+-   **Библиотека?** Используйте `DOCS/README_LIBRARY.ru.md`.
 
-### 1. Imports (Libraries)
-You can import functions from NPM packages or local files.
+Просто скопируйте содержимое подходящего файла в корневой `README.md` вашего проекта и заполните его в соответствии с вашими задачами.
 
-```javascript
-// src/backend/main.js
-import { format } from 'date-fns'; // NPM library
-import { helper } from './utils.js'; // Local file
+## 🧠 Для нейронных сетей (LLM)
 
-function doGet() {
-  // The date-fns library will be built and injected directly into this variable
-  const date = format(new Date(), 'yyyy-MM-dd'); 
-  return HtmlService.createHtmlOutput(date);
-}
-```
-
-**How it works:**
-The builder finds the `import`, bundles the specified library using `esbuild` into an isolated IIFE (Immediately Invoked Function Expression), and replaces the import line with:
-```javascript
-const { format } = (() => { /* ...date-fns code... */ return exports; })();
-```
-
-### 2. Variable Scope
-Since all backend files are concatenated into a single `Code.js` by default (`concatenate: true` setting), top-level variables are shared across files.
-
-*   **Tip:** Avoid using generic variable names like `const data = ...` in the global scope across different files.
-*   Use block scopes `{ ... }` or functions for internal logic.
-
-## ⚙️ Build Configuration (build.js)
-
-You can tweak the build process in the `CONFIG` object within `build.js`:
-
-```javascript
-backendSettings: {
-  concatenate: true,   // true = Merge all files into one Code.js (Recommended)
-                       // false = Keep files separate (Imports are still inlined)
-  
-  outFile: 'Code.js',  // Final output filename
-  
-  minify: true,        // Minify code to save space.
-                       // Note: Function names like doGet are preserved if needed.
-                       
-  priorityOrder: [     // Order of concatenation (important for global vars)
-    'config.js',
-    'utils/logger.js'
-  ]
-},
-
-modules: {
-  frontend: true,      // Set to false if you are only editing backend
-  backend: true
-}
-```
-
-## 📝 License
-MIT
+В папке `LLM/` находятся файлы `SUMMARY.xml` и `Svelte.md`. Они содержат подробный контекст об архитектуре проекта, правилах написания кода и особенностях Svelte 5. Эти файлы можно передать большим языковым моделям (типа Gemini, GPT), чтобы они могли быстрее и точнее понимать код и помогать в разработке.

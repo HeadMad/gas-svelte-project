@@ -1,232 +1,273 @@
 <script>
-  import { onMount } from 'svelte';
-  import { callServer } from '../utils/index.js';
+  import callServer from '../utils/callServer.js';
+  import { fly } from 'svelte/transition';
 
-  let todos = [];
-  let newTodoText = '';
-  let isLoading = true;
-  let errorMessage = '';
+  let tasks = $state([]);
+  let loading = $state(true);
+  let newTaskText = $state('');
 
-  onMount(async () => {
-    await loadTodos();
+  $effect(() => {
+    loading = true;
+    callServer('getTasks')
+      .then((serverTasks) => {
+        // Sort tasks by creation date
+        tasks = serverTasks.sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+      })
+      .catch((err) => alert(`Error fetching tasks: ${err.message}`))
+      .finally(() => {
+        loading = false;
+      });
   });
 
-  async function loadTodos() {
-    isLoading = true;
-    errorMessage = '';
-    try {
-      todos = await callServer.getTodos();
-      todos.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    } catch (err) {
-      errorMessage = 'Error loading tasks: ' + err.message;
-    } finally {
-      isLoading = false;
-    }
-  }
+  async function addTask() {
+    if (!newTaskText.trim()) return;
 
-  async function handleAddTodo() {
-    if (!newTodoText.trim()) return;
-    
-    const tempId = `temp-${Date.now()}`;
-    const optimisticTodo = { id: tempId, text: newTodoText, completed: false, createdAt: new Date().toISOString() };
-    todos = [...todos, optimisticTodo];
-    
-    const textToAdd = newTodoText;
-    newTodoText = '';
+    const tempId = crypto.randomUUID();
+    const text = newTaskText;
 
-    try {
-      const savedTodo = await callServer.addTodo(textToAdd);
-      // Replace optimistic todo with the real one from the server
-      todos = todos.map(t => t.id === tempId ? savedTodo : t);
-    } catch (err) {
-      errorMessage = 'Error adding task: ' + err.message;
-      // Rollback optimistic update
-      todos = todos.filter(t => t.id !== tempId);
-    }
-  }
-
-  async function handleToggleTodo(id, completed) {
     // Optimistic UI update
-    todos = todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+    const newTask = {
+      id: tempId,
+      text,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+    tasks = [...tasks, newTask];
+    newTaskText = '';
+
     try {
-      await callServer.toggleTodo(id);
+      const savedTask = await callServer('addTask', text);
+      // Replace temp task with the real one from the server
+      const taskIndex = tasks.findIndex((t) => t.id === tempId);
+      if (taskIndex !== -1) {
+        tasks[taskIndex] = savedTask;
+      }
     } catch (err) {
-      errorMessage = 'Error updating task: ' + err.message;
-      // Rollback optimistic update
-      todos = todos.map(t => t.id === id ? { ...t, completed } : t);
+      alert(`Error adding task: ${err.message}`);
+      // Revert on failure
+      tasks = tasks.filter((t) => t.id !== tempId);
+      newTaskText = text;
     }
   }
 
-  async function handleDeleteTodo(id) {
-    const originalTodos = todos;
+  async function toggleTask(task) {
+    const updatedTask = { ...task, completed: !task.completed };
+    const originalTask = task;
+
     // Optimistic UI update
-    todos = todos.filter(t => t.id !== id);
+    const taskIndex = tasks.findIndex((t) => t.id === task.id);
+    if (taskIndex !== -1) {
+      tasks[taskIndex] = updatedTask;
+    }
+
     try {
-      await callServer.deleteTodo(id);
+      await callServer('updateTask', updatedTask);
     } catch (err) {
-      errorMessage = 'Error deleting task: ' + err.message;
-      // Rollback optimistic update
-      todos = originalTodos;
+      alert(`Error updating task: ${err.message}`);
+      // Revert on failure
+      if (taskIndex !== -1) {
+        tasks[taskIndex] = originalTask;
+      }
+    }
+  }
+
+  async function deleteTask(id) {
+    const originalTasks = [...tasks];
+    tasks = tasks.filter((t) => t.id !== id);
+    try {
+      await callServer('deleteTask', id);
+    } catch (err) {
+      alert(`Error deleting task: ${err.message}`);
+      tasks = originalTasks;
     }
   }
 </script>
 
+<style>
+  :global(body) {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    color: #333;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  main {
+    max-width: 560px;
+    margin: 4rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+  }
+
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+    color: #222;
+    margin-bottom: 2rem;
+  }
+
+  .add-task {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .add-task input {
+    flex-grow: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: box-shadow 0.2s, border-color 0.2s;
+  }
+
+  .add-task input:focus {
+    outline: none;
+    border-color: #4c82f7;
+    box-shadow: 0 0 0 3px rgba(76, 130, 247, 0.2);
+  }
+
+  .add-task button {
+    flex-shrink: 0;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background-color: #2c6e49;
+    color: white;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .add-task button:hover {
+    background-color: #1e4d32;
+  }
+
+  .task-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+  }
+  
+  .task-item:last-child {
+      border-bottom: none;
+  }
+
+  .task-item.completed span {
+    text-decoration: line-through;
+    color: #999;
+  }
+  
+  .checkbox {
+    width: 20px;
+    height: 20px;
+    margin-right: 1rem;
+    cursor: pointer;
+    accent-color: #2c6e49;
+  }
+
+  .task-item span {
+    flex-grow: 1;
+    cursor: default;
+  }
+
+  .delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .delete-btn:hover {
+    background-color: #fce8e6;
+    color: #c94a38;
+  }
+  
+  .delete-btn svg {
+      width: 18px;
+      height: 18px;
+  }
+
+  .loading,
+  .empty-state {
+    text-align: center;
+    color: #888;
+    padding: 3rem 1rem;
+    font-size: 1rem;
+    background-color: #fcfcfc;
+    border-radius: 10px;
+  }
+</style>
+
 <main>
-  <h1>My Todo List</h1>
+  <h1>Todo List</h1>
 
-  <form on:submit|preventDefault={handleAddTodo} class="add-form">
-    <input type="text" placeholder="Add a new task..." bind:value={newTodoText} />
-    <button type="submit" disabled={!newTodoText.trim()}>+ Add</button>
-  </form>
+  <div class="add-task">
+    <input
+      type="text"
+      placeholder="e.g. Learn Svelte 5"
+      bind:value={newTaskText}
+      onkeydown={(e) => e.key === 'Enter' && addTask()}
+    />
+    <button onclick={addTask}>Add Task</button>
+  </div>
 
-  {#if errorMessage}
-    <p class="error">{errorMessage}</p>
-  {/if}
-
-  {#if isLoading && todos.length === 0}
+  {#if loading}
     <p class="loading">Loading tasks...</p>
-  {:else if todos.length === 0}
-    <p class="empty-state">No tasks yet. Add one to get started!</p>
+  {:else if tasks.length === 0}
+    <p class="empty-state">🎉<br /><br />All done! Add a new task to get started.</p>
   {:else}
-    <ul class="todo-list">
-      {#each todos as todo (todo.id)}
-        <li class:completed={todo.completed}>
-          <span class="checkbox" on:click={() => handleToggleTodo(todo.id, todo.completed)}>
-            {#if todo.completed}✓{/if}
-          </span>
-          <span class="text">{todo.text}</span>
-          <button class="delete-btn" on:click={() => handleDeleteTodo(todo.id)}>✕</button>
+    <ul class="task-list">
+      {#each tasks as task (task.id)}
+        <li
+          class="task-item"
+          class:completed={task.completed}
+          in:fly={{ y: 20, duration: 300 }}
+        >
+          <input
+            type="checkbox"
+            class="checkbox"
+            checked={task.completed}
+            onchange={() => toggleTask(task)}
+          />
+          <span onclick={() => toggleTask(task)}>{task.text}</span>
+          <button class="delete-btn" onclick={() => deleteTask(task.id)}>
+            <svg
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              ></path></svg
+            >
+          </button>
         </li>
       {/each}
     </ul>
   {/if}
 </main>
-
-<style>
-  :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f7f9;
-    color: #333;
-    margin: 0;
-  }
-
-  main {
-    max-width: 500px;
-    margin: 2rem auto;
-    padding: 1rem 2rem 2rem;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  }
-
-  h1 {
-    text-align: center;
-    color: #2c3e50;
-    font-weight: 300;
-    margin-bottom: 1.5rem;
-  }
-
-  .add-form {
-    display: flex;
-    margin-bottom: 1.5rem;
-  }
-
-  .add-form input {
-    flex-grow: 1;
-    border: 1px solid #dfe6e9;
-    padding: 0.8rem;
-    font-size: 1rem;
-    border-radius: 6px 0 0 6px;
-    outline: none;
-  }
-   .add-form input:focus {
-     border-color: #007bff;
-   }
-
-  .add-form button {
-    border: none;
-    background-color: #007bff;
-    color: white;
-    padding: 0 1.5rem;
-    font-size: 1rem;
-    cursor: pointer;
-    border-radius: 0 6px 6px 0;
-  }
-   .add-form button:disabled {
-      background-color: #b2bec3;
-      cursor: not-allowed;
-   }
-  
-  .error {
-      color: #d93025;
-      text-align: center;
-  }
-  
-  .loading, .empty-state {
-      text-align: center;
-      color: #636e72;
-      padding: 2rem 0;
-  }
-
-  .todo-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .todo-list li {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 0.25rem;
-    border-bottom: 1px solid #f0f0f0;
-    transition: background-color 0.2s;
-  }
-  
-   .todo-list li:last-child {
-       border-bottom: none;
-   }
-   
-   .todo-list li.completed .text {
-       text-decoration: line-through;
-       color: #b2bec3;
-   }
-   
-   .checkbox {
-       width: 24px;
-       height: 24px;
-       border: 2px solid #b2bec3;
-       border-radius: 50%;
-       margin-right: 1rem;
-       cursor: pointer;
-       display: flex;
-       align-items: center;
-       justify-content: center;
-       font-weight: bold;
-       color: #fff;
-   }
-   
-   .completed .checkbox {
-       background-color: #28a745;
-       border-color: #28a745;
-   }
-
-   .text {
-       flex-grow: 1;
-       line-height: 1.4;
-   }
-   
-   .delete-btn {
-       background: transparent;
-       border: none;
-       color: #fd79a8;
-       font-size: 1.2rem;
-       cursor: pointer;
-       opacity: 0;
-       transition: opacity 0.2s;
-   }
-   
-   .todo-list li:hover .delete-btn {
-       opacity: 1;
-   }
-
-</style>
