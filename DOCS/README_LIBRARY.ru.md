@@ -37,15 +37,6 @@ npm install -g @google/clasp
 clasp login
 ```
 
-### Свяжите с проектом Google
-Создайте файл `.clasp.json` в корне проекта:
-```json
-{
-  "scriptId": "ВАШ_SCRIPT_ID",
-  "rootDir": "./dist"
-}
-```
-
 ### Команды (Scripts)
 
 | Команда | Описание |
@@ -56,24 +47,26 @@ clasp login
 
 ### Опции
 
-Процесс сборки можно настроить через `build.config.json`.
+Процесс сборки настраивается через `build.config.json`. Полное описание всех опций смотрите в [**Руководстве по конфигурации сборки (`DOCS/CONFIG.ru.md`)**](CONFIG.ru.md).
 
-| Опция | Тип | Описание | По умолчанию |
-| :--- | :--- | :--- | :--- |
-| `manifest` | `string` | Путь к файлу манифеста (`appsscript.json`). | `src/appsscript.json` |
-| `package` | `string` | Путь к `package.json`. | `./package.json` |
-| `outDir` | `string` | Выходной каталог для сборки. | `dist` |
-| `frontend.build` | `boolean` | Если `true`, собирает фронтенд. | `true` |
-| `frontend.src`| `string` | Исходный каталог для фронтенда. | `src/frontend` |
-| `frontend.minify` | `boolean` | Если `true`, минифицирует код фронтенда. | `true` |
-| `backend.build` | `boolean` | Если `true`, собирает бэкенд. | `true` |
-| `backend.src` | `string` | Исходный каталог для бэкенда. | `src/backend` |
-| `backend.concatenate`| `boolean`| Если `true`, объединяет файлы бэкенда. | `true` |
-| `backend.outFile`| `string` | Имя объединенного выходного файла. | `Code.js` |
-| `backend.minify` | `boolean` | Если `true`, минифицирует код бэкенда. | `true` |
-| `backend.priorityOrder`| `string[]`| Массив файлов для первоочередного включения. | `[]` |
-| `deployment.devDeploymentId` | `string` | ID развертывания для среды разработки (URL веб-приложения). | "" |
-| `deployment.prodDeploymentId` | `string` | ID развертывания для производственной среды (URL веб-приложения). | "" |
+| Опция                   | Тип       | Описание                                                       |
+| :---------------------- | :-------- | :------------------------------------------------------------- |
+| `outDir`                | `String`  | Путь к выходному каталогу для собранных файлов.                |
+| `manifest`              | `String`  | Путь к файлу манифеста `appsscript.json`.                      |
+| `package`               | `String`  | Путь к `package.json`, используется для баннеров версий.       |
+| `message`               | `String`  | Необязательно. Шаблон сообщения при успешном `push` или `deploy`. |
+| `clasp`                 | `Object`  | Необязательно. Если есть, в `outDir` генерируется `.clasp.json`. |
+| `frontend.build`        | `Boolean` | Включает сборку фронтенда.                                     |
+| `frontend.src`          | `String`  | Исходный каталог для файлов фронтенда.                         |
+| `frontend.minify`       | `Boolean` | Минифицирует итоговый HTML, JS и CSS.                          |
+| `frontend.include`      | `Array`   | Дополнительные файлы/каталоги для включения в сборку фронтенда.|
+| `backend.build`         | `Boolean` | Включает сборку бэкенда.                                       |
+| `backend.src`           | `String`  | Исходный каталог для файлов бэкенда.                           |
+| `backend.minify`        | `Boolean` | Минифицирует код бэкенда.                                      |
+| `backend.concatenate`   | `Boolean` | Если `true`, объединяет все файлы бэкенда в один `outFile`.    |
+| `backend.outFile`       | `String`  | Имя выходного файла, если `concatenate` равно `true`.          |
+| `backend.include`       | `Array`   | Дополнительные файлы/каталоги для включения в сборку бэкенда.  |
+| `backend.priorityOrder` | `Array`   | Определяет порядок файлов при конкатенации.                    |
 
 ---
 

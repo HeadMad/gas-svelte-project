@@ -37,15 +37,6 @@ npm install -g @google/clasp
 clasp login
 ```
 
-### Link to Google Project
-Create a `.clasp.json` file in the project root:
-```json
-{
-  "scriptId": "YOUR_SCRIPT_ID",
-  "rootDir": "./dist"
-}
-```
-
 ### Scripts
 
 | Command | Description |
@@ -57,24 +48,26 @@ Create a `.clasp.json` file in the project root:
 
 ### Options
 
-The build process can be configured via `build.config.json`.
+The build process is configured via `build.config.json`. For a full description of all options, please see the [**Build Configuration Guide (`DOCS/CONFIG.en.md`)**](CONFIG.en.md).
 
-| Option | Type | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `manifest` | `string` | Path to the manifest file (`appsscript.json`). | `src/appsscript.json` |
-| `package` | `string` | Path to `package.json`. | `./package.json` |
-| `outDir` | `string` | The output directory for the build. | `dist` |
-| `frontend.build` | `boolean` | If `true`, builds the frontend. | `true` |
-| `frontend.src`| `string` | Source directory for the frontend. | `src/frontend` |
-| `frontend.minify` | `boolean` | If `true`, minifies the frontend code. | `true` |
-| `backend.build` | `boolean` | If `true`, builds the backend. | `true` |
-| `backend.src` | `string` | Source directory for the backend. | `src/backend` |
-| `backend.concatenate`| `boolean`| If `true`, concatenates backend files. | `true` |
-| `backend.outFile`| `string` | Name of the concatenated output file. | `Code.js` |
-| `backend.minify` | `boolean` | If `true`, minifies the backend code. | `true` |
-| `backend.priorityOrder`| `string[]`| Array of files to be included first. | `[]` |
-| `deployment.devDeploymentId` | `string` | Deployment ID for the dev environment. | "" |
-| `deployment.prodDeploymentId` | `string` | Deployment ID for the production environment. | "" |
+| Option                  | Type      | Description                                                    |
+| :---------------------- | :-------- | :------------------------------------------------------------- |
+| `outDir`                | `String`  | Path to the output directory for built files.                  |
+| `manifest`              | `String`  | Path to the `appsscript.json` manifest file.                   |
+| `package`               | `String`  | Path to `package.json`, used for version banners.              |
+| `message`               | `String`  | Optional. A message template for `push` or `deploy` success.   |
+| `clasp`                 | `Object`  | Optional. If present, a `.clasp.json` is generated in `outDir`.|
+| `frontend.build`        | `Boolean` | Enables the frontend build.                                    |
+| `frontend.src`          | `String`  | Source directory for frontend files.                           |
+| `frontend.minify`       | `Boolean` | Minifies the final HTML, JS, and CSS output.                   |
+| `frontend.include`      | `Array`   | Additional files/directories to include in the frontend build. |
+| `backend.build`         | `Boolean` | Enables the backend build.                                     |
+| `backend.src`           | `String`  | Source directory for backend files.                            |
+| `backend.minify`        | `Boolean` | Minifies the backend code.                                     |
+| `backend.concatenate`   | `Boolean` | If `true`, combines all backend files into a single `outFile`. |
+| `backend.outFile`       | `String`  | Output file name when `concatenate` is `true`.                 |
+| `backend.include`       | `Array`   | Additional files/directories to include in the backend build.  |
+| `backend.priorityOrder` | `Array`   | Defines the file order for concatenation.                      |
 
 ### Adding the library to your project:
 
