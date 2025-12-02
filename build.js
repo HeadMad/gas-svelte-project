@@ -71,16 +71,17 @@ const logger = {
 // ==========================================
 
 async function createClaspJson() {
-  if (CONFIG.clasp && Object.keys(CONFIG.clasp).length > 0) {
-    const outDir = path.resolve(configDir, CONFIG.outDir);
-    const claspJsonPath = path.join(outDir, '.clasp.json');
-    // Ensure the output directory exists
-    if (!fs.existsSync(outDir)) {
-      await fsPromises.mkdir(outDir, { recursive: true });
-    }
-    await fsPromises.writeFile(claspJsonPath, JSON.stringify(CONFIG.clasp, null, 2));
-    logger.success(`Generated .clasp.json in ${outDir}`);
+  if (!CONFIG.clasp || !Object.keys(CONFIG.clasp).length) return;
+
+  const outDir = path.resolve(configDir, CONFIG.outDir);
+  const claspJsonPath = path.join(outDir, '.clasp.json');
+  // Ensure the output directory exists
+  if (!fs.existsSync(outDir)) {
+    await fsPromises.mkdir(outDir, { recursive: true });
   }
+  await fsPromises.writeFile(claspJsonPath, JSON.stringify(CONFIG.clasp, null, 2));
+  logger.success(`Generated .clasp.json in ${outDir}`);
+
 }
 
 /**
@@ -158,6 +159,7 @@ async function cleanDist() {
 }
 
 async function copyManifest() {
+  if (!CONFIG.manifest) return;
   const manifestPath = path.resolve(configDir, CONFIG.manifest);
   if (await fileExists(manifestPath)) {
     await fsPromises.copyFile(manifestPath, path.join(path.resolve(configDir, CONFIG.outDir), 'appsscript.json'));
@@ -358,7 +360,7 @@ function generateOutputPaths(filesToProcess, srcDir) {
       counter++;
     }
     usedRelPaths.add(finalRelPath);
-    
+
     outputFiles.push({ fullPath, relPath: finalRelPath });
   }
   return outputFiles;
@@ -391,12 +393,12 @@ function htmlMinifierPlugin(enabled) {
 }
 
 async function buildFrontend() {
-  if (!CONFIG.frontend.build) return;
+  if (!CONFIG.frontend || !CONFIG.frontend.build) return;
 
   logger.info('Building Frontend...');
   const srcDir = path.resolve(configDir, CONFIG.frontend.src);
   const outDir = path.resolve(configDir, CONFIG.outDir);
-  
+
   const filesToProcess = collectFiles(srcDir, CONFIG.frontend.include, getAllHtmlFiles);
   if (filesToProcess.size === 0) {
     logger.warn('No HTML files found to build.');
@@ -433,7 +435,7 @@ async function buildFrontend() {
       tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'gas-build-'));
 
       logger.info(`-> Building: ${pFile.relPath}`);
-      
+
       // 2. Build the file into the temporary directory
       await viteBuild({
         ...viteBaseConfig,
@@ -452,7 +454,7 @@ async function buildFrontend() {
           }
         }
       });
-      
+
       // 3. Move the built file from temp to its correct final destination
       const viteOutputFile = path.join(tempDir, `${entryName}.html`);
       const finalDestPath = path.join(outDir, pFile.relPath);
@@ -571,10 +573,10 @@ async function getSortedBackendFiles() {
       counter++;
     }
     usedRelPaths.add(finalRelPath);
-    
+
     outputFiles.push({ fullPath, relPath: finalRelPath, type: data.type });
   }
-  
+
   // Also include files from priority order that might not have been collected
   const priorityFilesData = priorityOrder.map(p => path.resolve(srcDir, p))
     .filter(fullPath => !filesToProcess.has(fullPath) && fs.existsSync(fullPath));
@@ -584,12 +586,12 @@ async function getSortedBackendFiles() {
     // This part is tricky, for now we assume priorityOrder files are within src or include.
     // A more robust implementation might be needed if they can be anywhere.
   }
-  
+
   return outputFiles;
 }
 
 async function buildBackend() {
-  if (!CONFIG.backend.build) return;
+  if (!CONFIG.backend ||!CONFIG.backend.build) return;
 
   logger.info('Building Backend...');
   const outDir = path.resolve(configDir, CONFIG.outDir);
@@ -600,7 +602,7 @@ async function buildBackend() {
     logger.warn('No backend files found to build.');
     return;
   }
-  
+
   logger.info('Processing backend file imports...');
   // Process imports for each file
   for (const pFile of sortedFiles) {
